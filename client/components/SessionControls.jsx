@@ -29,6 +29,7 @@ function SessionActive({ stopSession, sendTextMessage }) {
   const [message, setMessage] = useState("");
 
   function handleSendClientEvent() {
+    console.log("[SENDING MESSAGE]", message);
     sendTextMessage(message);
     setMessage("");
   }
