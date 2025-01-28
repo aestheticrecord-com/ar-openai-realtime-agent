@@ -1,0 +1,56 @@
+version: 0.2
+
+env:
+  secrets-manager:
+    OPENAI_API_KEY:       "$SECRET_ID:OPENAI_API_KEY"
+
+phases:
+  install:
+    on-failure: ABORT
+    commands:
+      - echo "Get config Vars"
+      - export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - export ECR_REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      # - export ECR_CACHE_REPOSITORY_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/docker-hub/library"
+      - export NODE_IMAGE="node:current-alpine3.20"
+      - echo $ECR_REPOSITORY_URI
+      - if [ -z "${CONTAINER_NAME}" ]; then export CONTAINER_NAME=${APP_NAME}; fi
+
+  pre_build:
+    on-failure: ABORT
+    commands:
+      - echo Logging in to Docker Hub...
+      - docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
+      - REPOSITORY_URI=$ECR_REPOSITORY_URI/$APP_NAME
+      - DOCKER_COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${APP_NAME}-$(echo $GIT_COMMIT_ID | cut -c 1-7)-docker-$DOCKER_COMMIT_HASH
+
+  build:
+    on-failure: ABORT
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker pull $REPOSITORY_URI:latest || true
+      - |
+        docker build -t $REPOSITORY_URI:latest . \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --build-arg OPENAI_API_KEY=$OPENAI_API_KEY
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+
+  post_build:
+    on-failure: ABORT
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - REPO_NAME=$(basename "$REPOSITORY_URI")
+      - aws ecr batch-delete-image --repository-name $REPO_NAME --image-ids imageTag=latest || true # remove the latest tag for ECR immutability
+      - docker tag $REPOSITORY_URI:$IMAGE_TAG $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI:latest
+      - echo Writing image definitions file...
+      - printf '[{"name":'\"${CONTAINER_NAME}\"',"imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+
+artifacts:
+  files: imagedefinitions.json
