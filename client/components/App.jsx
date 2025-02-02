@@ -1,30 +1,42 @@
+import { useState } from 'react';
 import useVoiceConnection from '../hooks/useVoiceConnection';
+import Sidebar from './Sidebar';
+import MainPanel from './MainPanel';
 
-export default function App() {
+const initialSteps = [
+  { id: 1, title: 'Account Setup', completed: false },
+  { id: 2, title: 'Clinic Details', completed: false },
+];
+
+const App = () => {
   const { 
     isSessionActive,
     transcript,
     startSession,
-    stopSession
+    stopSession,
+    sendMessage
   } = useVoiceConnection();
+  
+  const [currentStep, setCurrentStep] = useState(-1);
+  const [steps] = useState(initialSteps);
 
   return (
-    <div className="app-container">
-      <div className="controls">
-        {!isSessionActive ? (
-          <button onClick={startSession} disabled={isSessionActive}>
-            Connect
-          </button>
-        ) : (
-          <button onClick={stopSession} disabled={!isSessionActive}>
-            Disconnect
-          </button>
-        )}
-      </div>
-
-      <div className="transcript-box">
-        {transcript || "Waiting for input..."}
-      </div>
+    <div className="h-screen flex">
+      <Sidebar
+        isConnected={isSessionActive}
+        currentStep={currentStep}
+        steps={steps}
+        toggleConnection={isSessionActive ? stopSession : startSession}
+      />
+      
+      <MainPanel 
+        currentStep={currentStep}
+        steps={steps}
+        transcript={transcript}
+        onSendMessage={sendMessage}
+      />
     </div>
   );
-}
+};
+
+export default App;

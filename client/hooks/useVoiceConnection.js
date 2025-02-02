@@ -68,6 +68,7 @@ export default function useVoiceConnection() {
 
     const handleDataMessage = async (event) => {
       const message = JSON.parse(event.data);
+      console.log("[HANDLE DATA MESSAGE]", message);
       
       if (message.type === 'response.audio_transcript.done') {
         setTranscript(message.transcript);
@@ -120,5 +121,51 @@ export default function useVoiceConnection() {
     };
   }, [dataChannel]);
 
-  return { isSessionActive, transcript, startSession, stopSession };
+  const sendMessage = ({ text, files }) => {
+    if (!dataChannel) {
+      console.error("No active data channel");
+      return;
+    }
+
+    console.log("[SENDING MESSAGE]", text, files);
+
+    // Send text message
+    if (text) {
+      dataChannel.send(JSON.stringify({
+        type: 'conversation.item.create',
+        item: {
+          type: "message",
+          role: "user",
+          content: [{
+            type: "input_text",
+            text: text,
+          }],
+        }
+      }));
+      dataChannel.send(JSON.stringify({
+        type: 'response.create'
+      }));
+    }
+
+    // Handle file uploads
+    if (files?.length > 0) {
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          dataChannel.send(JSON.stringify({
+            type: 'conversation.item.create',
+            item: {
+              type: 'file',
+              name: file.name,
+              content: reader.result.split(',')[1]
+            }
+          }));
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+  };
+
+  return { isSessionActive, transcript, startSession, stopSession, sendMessage };
 } 
