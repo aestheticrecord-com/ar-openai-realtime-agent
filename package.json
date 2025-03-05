@@ -5,7 +5,7 @@
     "start": "NODE_ENV=production node server.js"
   },
   "dependencies": {
-    "@fastify/cors": "^11.0.0",
+    "@fastify/cors": "^8.4.1",
     "@fastify/env": "^4.4.0",
     "fastify": "^4.24.3"
   }
