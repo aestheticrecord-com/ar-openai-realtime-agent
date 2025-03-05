@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import fastifyEnv from "@fastify/env";
+import fastifyCors from '@fastify/cors';
 
 const server = Fastify({
   logger: true,
@@ -17,6 +18,14 @@ const schema = {
 };
 
 await server.register(fastifyEnv, { dotenv: true, schema });
+
+// Register CORS
+await server.register(fastifyCors, {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true
+});
 
 // Process Excel API endpoint
 server.post('/api/process-excel', async (request, reply) => {
