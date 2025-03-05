@@ -21,9 +21,8 @@ WORKDIR /app
 
 COPY . .
 RUN npm install
-RUN npm run build 
 
-# Expose the port nginx is reachable on
+# Expose the port the server is reachable on
 EXPOSE 3000
 
 CMD ["npm", "run", "start"]
